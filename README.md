@@ -2,13 +2,13 @@
 
 在微信读书网页版正文旁显示**当前页的热门划线及划线人数**，方便阅读时查看其他读者关注的段落和真实想法。
 
-当前版本：**0.7.1**。这是第三方用户脚本，并非腾讯官方产品。
+当前版本：**0.7.4**。这是第三方用户脚本，并非腾讯官方产品。
 
 ## 功能
 
 - 显示当前页热门划线、划线人数和正文旁标签。
 - 翻页、滚动或切换章节后自动跟随当前阅读位置刷新。
-- 点击划线或旁边的标签展开真实读者想法；当前最多展示 5 条。
+- 点击右下角“本页 N 条划线”打开当前页列表，再点击任一条查看真实读者想法；也可以直接点击正文划线。想法当前最多展示 5 条，可通过“返回划线”回到列表。
 - 点击展开面板中的原文，使用微信读书 reader 的官方 range 定位并高亮正文。
 - 动态识别当前书籍、章节和划线范围，没有绑定特定书籍。
 
@@ -18,7 +18,7 @@
 
 ## 安装
 
-已安装 Tampermonkey？[点击安装用户脚本](https://raw.githubusercontent.com/aistacey2006/weread-community-highlights/main/weread-community-highlights.user.js)。
+已安装 Tampermonkey？[点击安装用户脚本](https://raw.githubusercontent.com/siennelab/weread-community-highlights/main/weread-community-highlights.user.js)。
 
 1. 在桌面浏览器安装 [Tampermonkey](https://www.tampermonkey.net/)。按扩展提示允许用户脚本运行。
 2. 下载本项目的 `weread-community-highlights.user.js`。在 Tampermonkey 管理面板的「实用工具」中从文件导入，确认安装；也可以新建脚本，将文件的完整内容粘贴进去并保存。
@@ -26,6 +26,8 @@
 4. 打开并刷新微信读书阅读页。目标站点为 `https://weread.qq.com/web/reader/*`。
 
 不需要 npm、构建步骤或额外的 AI/Skill 安装。
+
+如果旧版提示“微信读书 Skill 有新版本”或要求替换 `SKILL.md`，请更新本用户脚本后刷新阅读页。v0.7.4 已适配官方接口规范 1.0.5；无需另外安装 Skill，也无需因此更换 API Key。
 
 ## 获取并设置 API Key
 

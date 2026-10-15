@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WeRead Popular Highlights
 // @namespace    s-weread
-// @version      0.7.1
+// @version      0.7.4
 // @license      MIT
 // @description  Show popular WeRead highlights in the desktop web reader.
 // @match        https://weread.qq.com/web/reader/*
@@ -242,7 +242,8 @@ function readerBridgeBootstrap() {
   const readerBridge = unsafeWindow.Function('return (' + readerBridgeBootstrap.toString() + ')()')();
 
   const API = 'https://i.weread.qq.com/api/agent/gateway';
-  const SKILL_VERSION = '1.0.4';
+  // Reviewed against Tencent/WeChatReading skills/SKILL.md and skills/notes.md.
+  const SKILL_VERSION = '1.0.5';
   const KEY_NAME = 'weread_api_key';
   const PANEL_ID = 'wr-popular-panel-v03';
   const STYLE_ID = 'wr-popular-style-v03';
@@ -322,8 +323,7 @@ function readerBridgeBootstrap() {
           if (data.upgrade_info) {
             reject(
               new Error(
-                data.upgrade_info.message ||
-                'WeRead API 要求升级'
+                `微信读书接口规范已更新，请更新热门划线脚本后重试（当前接口规范版本 ${SKILL_VERSION}）。无需安装 Skill 或更换 Key。`
               )
             );
             return;
@@ -537,10 +537,11 @@ function readerBridgeBootstrap() {
       <div class="wr-box">
         <div class="wr-head">
           <button class="wr-close" type="button" aria-label="关闭想法面板" title="关闭">×</button>
-          <div class="wr-title">WeRead Popular Highlights · v0.7.1</div>
+          <div class="wr-title">WeRead Popular Highlights · v0.7.4</div>
           <div class="wr-status">脚本已启动。</div>
 
           <div class="wr-actions">
+            <button class="wr-action wr-back" hidden>返回划线</button>
             <button class="wr-action wr-set-key">设置 / 更换 Key</button>
             <button class="wr-action wr-reload">重新读取</button>
           </div>
@@ -549,7 +550,7 @@ function readerBridgeBootstrap() {
         <div class="wr-list"></div>
       </div>
 
-      <button class="wr-main-btn">WR 0.7.1</button>
+      <button class="wr-main-btn">WR 0.7.4</button>
     `;
 
     document.body.appendChild(panel);
@@ -565,8 +566,11 @@ function readerBridgeBootstrap() {
     panel
       .querySelector('.wr-main-btn')
       .addEventListener('click', () => {
+        if (!panel.classList.contains('open')) showPageHighlights();
         panel.classList.toggle('open');
       });
+
+    panel.querySelector('.wr-back').addEventListener('click', showPageHighlights);
 
     panel
       .querySelector('.wr-set-key')
@@ -600,6 +604,7 @@ function readerBridgeBootstrap() {
   }
 
   let chapterData = null;
+  let currentPage = null;
   let pageSignature = '';
   let pageQueued = false;
   const chapterRequests = new Map();
@@ -613,6 +618,33 @@ function readerBridgeBootstrap() {
   }
   function countLabel(item) {
     return Number(item.count) > 0 ? `${Number(item.count).toLocaleString()} 人划线` : '热门划线';
+  }
+  function highlightRow(item, action) {
+    const row = document.createElement('button');
+    row.className = 'wr-item';
+    const count = document.createElement('div');
+    count.className = 'wr-count';
+    count.textContent = countLabel(item) + ' · ' + action;
+    const text = document.createElement('div');
+    text.className = 'wr-text';
+    text.textContent = item.markText;
+    row.append(count,text);
+    return row;
+  }
+  function showPageHighlights() {
+    if (!currentPage) return;
+    const {marks, context} = currentPage;
+    const panel = ensurePanel();
+    const list = panel.querySelector('.wr-list');
+    panel.querySelector('.wr-back').hidden = true;
+    list.replaceChildren();
+    for (const item of marks) {
+      const row = highlightRow(item, '查看想法');
+      row.addEventListener('click', () => openReviews(item, context));
+      list.appendChild(row);
+    }
+    if (!marks.length) list.textContent = '本页暂无热门划线。';
+    setStatus(`${context.title} · 本页 ${marks.length} 条 · 本章 ${context.items.length} 条`);
   }
   function renderReviews(body, group) {
     body.replaceChildren();
@@ -653,19 +685,12 @@ function readerBridgeBootstrap() {
     const panel = ensurePanel();
     const list = panel.querySelector('.wr-list');
     list.replaceChildren();
-    const row = document.createElement('button');
-    row.className = 'wr-item';
-    const count = document.createElement('div');
-    count.className = 'wr-count';
-    count.textContent = countLabel(item) + ' · 点击原文定位';
-    const text = document.createElement('div');
-    text.className = 'wr-text';
-    text.textContent = item.markText;
-    row.append(count,text);
+    panel.querySelector('.wr-back').hidden = false;
+    const row = highlightRow(item, '点击原文定位');
     row.addEventListener('click', async () => {
       row.disabled = true;
       try { await readerBridge.jump(item.target); }
-      catch(error) { setStatus(error.message || '定位失败',true); }
+      catch(error) { if (row.isConnected) setStatus(error.message || '定位失败',true); }
       finally { row.disabled = false; }
     });
     const body = document.createElement('div');
@@ -685,9 +710,11 @@ function readerBridgeBootstrap() {
     }
   }
   function clearView() {
+    currentPage = null;
     readerBridge.clearPage();
     const panel = ensurePanel();
     panel.classList.remove('open');
+    panel.querySelector('.wr-back').hidden = true;
     panel.querySelector('.wr-list').replaceChildren();
   }
   function drawLabels(page, context) {
@@ -715,13 +742,13 @@ function readerBridgeBootstrap() {
         if(pageSignature){clearView();pageSignature='';} return;
       }
       if(state.signature===pageSignature)return;
-      clearView();
       const page=readerBridge.paintPage(chapterData.items,chapterData,state.signature);
       if(!page)return;
       pageSignature=state.signature;
       drawLabels(page,chapterData);
+      currentPage={marks:page.marks,context:chapterData};
+      showPageHighlights();
       setMainButton(`本页 ${page.marks.length} 条划线`);
-      setStatus(`${chapterData.title} · 本页 ${page.marks.length} 条 · 本章 ${chapterData.items.length} 条`);
     } catch(error) { setStatus(error.message || '当前页标记失败'); }
   }
   function schedulePage() {
